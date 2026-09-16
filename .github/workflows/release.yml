@@ -20,7 +20,12 @@ jobs:
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
           ZIP="RTK-Meter-$VERSION-universal.zip"
-          ditto -c -k --keepParent "build/RTK Meter.app" "$ZIP"
+          # Wrap the bundle in a parent directory: Homebrew strips a single root
+          # entry when unpacking, which would otherwise stage inside the .app.
+          STAGE="rtk-meter-$VERSION"
+          mkdir -p "$STAGE"
+          cp -R "build/RTK Meter.app" "$STAGE/"
+          ditto -c -k --sequesterRsrc --keepParent "$STAGE" "$ZIP"
           shasum -a 256 "$ZIP" | tee checksum.txt
           echo "ZIP=$ZIP" >> "$GITHUB_ENV"
 
