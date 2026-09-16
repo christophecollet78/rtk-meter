@@ -63,16 +63,15 @@ struct DetailView: View {
     @ViewBuilder
     private var content: some View {
         if let stats = store.stats {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 18) {
-                    gauge(stats.summary)
-                    statGrid(stats.summary)
-                    if !stats.daily.isEmpty { dailyChart(stats.daily) }
-                    if !stats.top.isEmpty { topCommands(stats.top) }
-                }
-                .padding(16)
+            // No ScrollView: every section has a bounded height, so the popover
+            // shows the whole report at once and sizes itself to fit.
+            VStack(alignment: .leading, spacing: 18) {
+                gauge(stats.summary)
+                statGrid(stats.summary)
+                if !stats.daily.isEmpty { dailyChart(stats.daily) }
+                if !stats.top.isEmpty { topCommands(stats.top) }
             }
-            .frame(maxHeight: 520)
+            .padding(16)
         } else if let error = store.error {
             errorBlock(error)
         } else {
