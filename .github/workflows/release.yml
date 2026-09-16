@@ -1,0 +1,39 @@
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build app bundle
+        run: VERSION="${GITHUB_REF_NAME#v}" ./build.sh
+
+      - name: Package
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          ZIP="RTK-Meter-$VERSION-universal.zip"
+          ditto -c -k --keepParent "build/RTK Meter.app" "$ZIP"
+          shasum -a 256 "$ZIP" | tee checksum.txt
+          echo "ZIP=$ZIP" >> "$GITHUB_ENV"
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" "$ZIP" \
+            --title "RTK Meter ${GITHUB_REF_NAME#v}" \
+            --notes "Universal build (arm64 + x86_64), macOS 13+.
+
+          Install with Homebrew:
+
+              brew install christophecollet78/tap/rtk-meter
+
+          SHA-256: \`$(shasum -a 256 "$ZIP" | cut -d' ' -f1)\`"
