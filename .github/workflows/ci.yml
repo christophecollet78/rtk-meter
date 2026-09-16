@@ -1,0 +1,26 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build app bundle
+        run: ./build.sh
+
+      - name: Render popover preview
+        run: |
+          "build/RTK Meter.app/Contents/MacOS/RTKMeter" --render-preview popover.png
+          test -s popover.png
+
+      - name: Upload preview
+        uses: actions/upload-artifact@v4
+        with:
+          name: popover-preview
+          path: popover.png

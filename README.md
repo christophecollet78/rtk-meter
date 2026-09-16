@@ -1,0 +1,95 @@
+# RTK Meter
+
+A macOS menu bar app for [rtk](https://www.rtk-ai.app) (Rust Token Killer): it shows your
+token-savings efficiency in the status bar and the full breakdown in a click-through popover.
+Refreshes every 60 seconds.
+
+<img src="docs/popover.png" width="340" alt="RTK Meter popover showing efficiency, daily savings and top commands">
+
+## Requirements
+
+- macOS 13 or later
+- Xcode Command Line Tools (`xcode-select --install`) — build only
+- `rtk` installed and on the PATH
+
+## Build & install
+
+```bash
+git clone https://github.com/christophecollet78/rtk-meter.git
+cd rtk-meter
+./build.sh
+cp -R "build/RTK Meter.app" ~/Applications/
+open ~/Applications/"RTK Meter.app"
+```
+
+`build.sh` runs `swift build` and wraps the result into a universal (arm64 + x86_64),
+ad-hoc signed bundle in `build/`. An app you build yourself is not quarantined, so
+Gatekeeper stays out of the way. A bundle you *download* is: distributing binaries to
+other people needs a Developer ID signature and notarisation.
+
+Override the bundle metadata if you are packaging your own variant:
+
+```bash
+APP_NAME="Token Meter" BUNDLE_ID="com.example.tokenmeter" VERSION=1.1 ./build.sh
+```
+
+## Settings
+
+The gear menu in the popover covers refresh interval, menu bar percentage, launch at
+login, an explicit `rtk` path, and a project scope (statistics for one directory, via
+`rtk gain --project`). Everything is stored in the standard defaults domain, so it can
+also be scripted:
+
+```bash
+defaults write local.rtkmeter refreshInterval -float 300
+defaults write local.rtkmeter rtkPath /custom/bin/rtk
+defaults write local.rtkmeter projectScope ~/code/my-project
+defaults write local.rtkmeter showPercentage -bool false
+```
+
+## What it shows
+
+- **Status bar** — gauge symbol plus the average savings percentage
+- **Popover** (left-click) — totals, a daily savings chart for the last 14 days,
+  and the top commands ranked by tokens saved
+- **Context menu** (right-click) — Refresh / Quit
+- **Launch at login** — registers the app through `SMAppService`
+
+Data comes from `rtk gain -f json -d`. The per-command table is parsed from the text
+output of `rtk gain`, since the JSON renderer only exposes the summary and daily series;
+if that layout changes, the section is omitted rather than showing wrong numbers.
+
+## Layout
+
+| Path | Role |
+| --- | --- |
+| `Sources/RTKMeter/Stats.swift` | Data model and formatting helpers |
+| `Sources/RTKMeter/RTK.swift` | Locates and runs `rtk`, parses its output |
+| `Sources/RTKMeter/Settings.swift` | Preferences, backed by `UserDefaults` |
+| `Sources/RTKMeter/DetailView.swift` | SwiftUI popover |
+| `Sources/RTKMeter/App.swift` | Status item, timer, popover hosting |
+| `Sources/RTKMeter/PreviewRenderer.swift` | Offscreen PNG render of the popover |
+| `Sources/RTKMeter/main.swift` | Entry point |
+
+The binary doubles as its own screenshot tool, which is how CI checks the UI without a
+display:
+
+```bash
+"build/RTK Meter.app/Contents/MacOS/RTKMeter" --render-preview popover.png
+```
+
+Pass a captured `rtk gain` output as a second argument to render the real command table.
+
+`rtk` is located by probing the usual install paths (Homebrew, Cargo, `~/.local/bin`) and
+then falling back to `$SHELL -lc 'command -v rtk'`, because GUI apps do not inherit the
+login shell PATH. Every invocation has a 15-second timeout and its output is drained on a
+background queue, so a stuck or chatty `rtk` cannot freeze the menu bar.
+
+## Contributing
+
+Issues and pull requests are welcome. Keep to the existing style: no third-party
+dependencies, and macOS 13 as the deployment floor.
+
+## License
+
+MIT
