@@ -59,11 +59,13 @@ final class StatsStore: ObservableObject {
 struct DetailView: View {
     @ObservedObject var store: StatsStore
     @ObservedObject var settings: AppSettings
+    @ObservedObject var updater: Updater
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             header
             Divider()
+            updateBanner
             content
             Divider()
             footer
@@ -136,6 +138,10 @@ struct DetailView: View {
                 }
             }
             Button("Set rtk path…") { chooseBinary() }
+            Divider()
+            Button("Check for Updates") { updater.check() }
+                .disabled(!updater.canCheck)
+            Text("Version \(updater.currentVersion.description)")
             if !settings.rtkPath.isEmpty {
                 Button("Detect rtk automatically") {
                     settings.rtkPath = ""
@@ -178,6 +184,72 @@ struct DetailView: View {
             settings.rtkPath = url.path
             store.refresh()
         }
+    }
+
+// MARK: Update banner
+
+    @ViewBuilder
+    private var updateBanner: some View {
+        switch updater.phase {
+        case .upgrading:
+            bannerRow(icon: "arrow.down.circle") {
+                Text("Updating…").font(.system(size: 11, weight: .medium))
+            } trailing: {
+                ProgressView().controlSize(.small)
+            }
+        case .upgraded:
+            bannerRow(icon: "checkmark.circle.fill") {
+                Text("Update installed").font(.system(size: 11, weight: .medium))
+            } trailing: {
+                Button("Relaunch") { updater.relaunch() }
+                    .controlSize(.small)
+            }
+        case .failed(let message):
+            bannerRow(icon: "exclamationmark.triangle.fill") {
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("Update failed").font(.system(size: 11, weight: .medium))
+                    Text(message).font(.system(size: 10)).foregroundStyle(.secondary)
+                        .lineLimit(2)
+                }
+            } trailing: {
+                Button("Details") { updater.openReleasePage() }
+                    .controlSize(.small)
+            }
+        case .idle, .checking:
+            if let release = updater.newer {
+                bannerRow(icon: "arrow.down.circle.fill") {
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text("Version \(release.version.description) available")
+                            .font(.system(size: 11, weight: .medium))
+                        Text("You have \(updater.currentVersion.description)")
+                            .font(.system(size: 10)).foregroundStyle(.secondary)
+                    }
+                } trailing: {
+                    if updater.isHomebrewManaged {
+                        Button("Update") { updater.upgrade() }.controlSize(.small)
+                    } else {
+                        Button("Download") { updater.openReleasePage() }.controlSize(.small)
+                    }
+                }
+            }
+        }
+    }
+
+    private func bannerRow<Label: View, Trailing: View>(
+        icon: String,
+        @ViewBuilder label: () -> Label,
+        @ViewBuilder trailing: () -> Trailing
+    ) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: icon).foregroundStyle(.tint)
+            label()
+            Spacer()
+            trailing()
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+        .background(Color.accentColor.opacity(0.08))
+        .overlay(alignment: .bottom) { Divider() }
     }
 
     // MARK: Sections

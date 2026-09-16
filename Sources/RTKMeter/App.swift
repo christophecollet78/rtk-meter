@@ -7,7 +7,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let popover = NSPopover()
     private let settings = AppSettings.shared
     private lazy var store = StatsStore(settings: settings)
+    private let updater = Updater()
     private var timer: Timer?
+    private var updateTimer: Timer?
     private var subscriptions = Set<AnyCancellable>()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -27,7 +29,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         popover.behavior = .transient
         popover.animates = true
         popover.contentViewController = NSHostingController(
-            rootView: DetailView(store: store, settings: settings))
+            rootView: DetailView(store: store, settings: settings, updater: updater))
 
         store.objectWillChange
             .receive(on: RunLoop.main)
@@ -45,6 +47,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             .store(in: &subscriptions)
 
         store.refresh()
+        scheduleUpdateChecks()
 
         NSWorkspace.shared.notificationCenter.addObserver(
             self, selector: #selector(refreshNow),
@@ -65,6 +68,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func refreshNow() { store.refresh() }
+
+    /// Checks shortly after launch, then twice a day; GitHub allows 60 anonymous
+    /// API calls an hour, so this is nowhere near the limit.
+    private func scheduleUpdateChecks() {
+        guard updater.canCheck else { return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 5) { [weak self] in
+            self?.updater.check()
+        }
+        let t = Timer(timeInterval: 6 * 3600, repeats: true) { [weak self] _ in
+            self?.updater.check()
+        }
+        t.tolerance = 600
+        RunLoop.main.add(t, forMode: .common)
+        updateTimer = t
+    }
 
     // MARK: Status bar title
 

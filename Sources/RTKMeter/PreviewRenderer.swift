@@ -5,6 +5,8 @@ import SwiftUI
 /// pull request, or over SSH — anywhere a screen capture is not available.
 ///
 ///     RTKMeter --render-preview out.png [rtk-gain-output.txt]
+///
+/// Set PREVIEW_UPDATE=1.2.0 to draw the update banner as well.
 enum PreviewRenderer {
     static func outputPath(from arguments: [String]) -> (png: String, fixture: String?)? {
         guard let flag = arguments.firstIndex(of: "--render-preview"),
@@ -19,7 +21,13 @@ enum PreviewRenderer {
         let store = StatsStore(settings: AppSettings(defaults: scratchDefaults()))
         store.loadSample(topCommandsFrom: fixture)
 
-        let view = NSHostingView(rootView: DetailView(store: store, settings: store.settings))
+        let updater = Updater()
+        if let version = ProcessInfo.processInfo.environment["PREVIEW_UPDATE"] {
+            updater.setPreviewUpdate(version: version)
+        }
+
+        let view = NSHostingView(rootView: DetailView(
+            store: store, settings: store.settings, updater: updater))
         view.frame = NSRect(x: 0, y: 0, width: 340, height: view.fittingSize.height)
         view.layoutSubtreeIfNeeded()
 

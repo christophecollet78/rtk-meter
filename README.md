@@ -1,6 +1,6 @@
 # RTK Meter
 
-A macOS menu bar app for [rtk](https://www.rtk-ai.app) (Rust Token Killer): it shows your
+A macOS menu bar app for [rtk](https://github.com/rtk-ai/rtk) (Rust Token Killer): it shows your
 token-savings efficiency in the status bar and the full breakdown in a click-through popover.
 Refreshes every 60 seconds.
 
@@ -53,6 +53,19 @@ Override the bundle metadata if you are packaging your own variant:
 APP_NAME="Token Meter" BUNDLE_ID="com.example.tokenmeter" VERSION=1.1 ./build.sh
 ```
 
+## Updates
+
+The app asks GitHub for the latest release five seconds after launch and every six
+hours after that. When a newer version exists, a banner appears at the top of the
+popover; installed from the tap, its button runs `brew upgrade` and then offers to
+relaunch. Installed any other way, it links to the release instead. "Check for
+Updates" in the gear menu asks immediately.
+
+Nothing is sent anywhere: the check is one anonymous GET to
+`api.github.com/repos/<repo>/releases/latest`, well inside the 60-per-hour limit.
+A build with no tag reports version `0.0.0` and skips the check entirely rather
+than claiming to be outdated.
+
 ## Settings
 
 The gear menu in the popover covers refresh interval, menu bar percentage, launch at
@@ -86,6 +99,7 @@ if that layout changes, the section is omitted rather than showing wrong numbers
 | `Sources/RTKMeter/Stats.swift` | Data model and formatting helpers |
 | `Sources/RTKMeter/RTK.swift` | Locates and runs `rtk`, parses its output |
 | `Sources/RTKMeter/Settings.swift` | Preferences, backed by `UserDefaults` |
+| `Sources/RTKMeter/Updater.swift` | Release check, `brew upgrade`, relaunch |
 | `Sources/RTKMeter/DetailView.swift` | SwiftUI popover |
 | `Sources/RTKMeter/App.swift` | Status item, timer, popover hosting |
 | `Sources/RTKMeter/PreviewRenderer.swift` | Offscreen PNG render of the popover |
@@ -98,7 +112,12 @@ display:
 "build/RTK Meter.app/Contents/MacOS/RTKMeter" --render-preview popover.png
 ```
 
-Pass a captured `rtk gain` output as a second argument to render the real command table.
+Pass a captured `rtk gain` output as a second argument to render the real command table,
+or set `PREVIEW_UPDATE=1.4.0` to draw the update banner too.
+
+The version comes from the git tag, so a released build always reports the version it
+was published under. `REPOSITORY` and `FORMULA` decide where the update check looks —
+override both when building a fork.
 
 `rtk` is located by probing the usual install paths (Homebrew, Cargo, `~/.local/bin`) and
 then falling back to `$SHELL -lc 'command -v rtk'`, because GUI apps do not inherit the
