@@ -76,6 +76,7 @@ struct DetailView: View {
             footer
         }
         .frame(width: 340)
+        .background { PanelBackdrop(style: panelStyle) }
     }
 
     @ViewBuilder

@@ -15,7 +15,31 @@ final class AppearanceMonitor: ObservableObject {
     /// re-read whenever the popover is about to be shown.
     func refreshFromSystem() {
         let value = Self.readGlassTint()
-        if value != glassTint { glassTint = value }
+        if value != glassTint {
+            Self.log("glass tint \(glassTint) -> \(value)")
+            glassTint = value
+        } else {
+            Self.log("glass tint unchanged at \(value)")
+        }
+    }
+
+    /// RTKMETER_DIAGNOSTICS=1 logs what the app reads, for debugging a setting
+    /// that appears not to apply.
+    static let isDiagnostic = ProcessInfo.processInfo.environment["RTKMETER_DIAGNOSTICS"] == "1"
+
+    /// Unbuffered, so the log is readable while the app is still running.
+    static func log(_ message: String) {
+        guard isDiagnostic else { return }
+        FileHandle.standardError.write(Data("appearance: \(message)\n".utf8))
+    }
+
+    var summary: String {
+        """
+        glassTint          \(glassTint)
+        reduceTransparency \(reduceTransparency)
+        increaseContrast   \(increaseContrast)
+        reduceMotion       \(reduceMotion)
+        """
     }
 
     private static func readGlassTint() -> Double {
@@ -26,7 +50,12 @@ final class AppearanceMonitor: ObservableObject {
         // Read through CFPreferences after a sync: UserDefaults caches other
         // domains for the life of the process, so a slider moved in System
         // Settings would otherwise never reach a long-running agent.
-        CFPreferencesAppSynchronize(kCFPreferencesAnyApplication)
+        // CFPreferencesSynchronize, not CFPreferencesAppSynchronize: the value
+        // lives in the global domain, and only the three-argument form drops the
+        // cached copy a long-running process would otherwise keep forever.
+        CFPreferencesSynchronize(kCFPreferencesAnyApplication,
+                                 kCFPreferencesCurrentUser,
+                                 kCFPreferencesAnyHost)
         let raw = CFPreferencesCopyValue("NSGlassTintAmount" as CFString,
                                          kCFPreferencesAnyApplication,
                                          kCFPreferencesCurrentUser,
@@ -34,6 +63,8 @@ final class AppearanceMonitor: ObservableObject {
         guard let stored = (raw as? NSNumber)?.doubleValue else { return 0.5 }
         return min(max(stored, 0), 1)
     }
+
+    private var pollTimer: Timer?
 
     init() {
         let workspace = NSWorkspace.shared
@@ -46,6 +77,14 @@ final class AppearanceMonitor: ObservableObject {
             self, selector: #selector(optionsChanged),
             name: NSWorkspace.accessibilityDisplayOptionsDidChangeNotification,
             object: nil)
+
+        if Self.isDiagnostic {
+            let timer = Timer(timeInterval: 2, repeats: true) { [weak self] _ in
+                self?.refreshFromSystem()
+            }
+            RunLoop.main.add(timer, forMode: .common)
+            pollTimer = timer
+        }
     }
 
     @objc private func optionsChanged() {
@@ -93,6 +132,28 @@ enum PanelStyle: Equatable {
         guard enabled, !monitor.reduceTransparency else { return .solid }
         if #available(macOS 26.0, *) { return .glass(tint: monitor.glassTint) }
         return .material
+    }
+}
+
+/// The window's own background. This is what the system transparency settings
+/// act on, so it is Liquid Glass where that exists, a material before it, and an
+/// opaque fill when transparency is reduced.
+struct PanelBackdrop: View {
+    let style: PanelStyle
+
+    var body: some View {
+        switch style {
+        case .glass(let tint):
+            if #available(macOS 26.0, *) {
+                Color.clear.glassEffect(tint < 0.5 ? .clear : .regular, in: Rectangle())
+            } else {
+                VisualEffectBackground(material: .popover, blending: .behindWindow)
+            }
+        case .material:
+            VisualEffectBackground(material: .popover, blending: .behindWindow)
+        case .solid:
+            Color(nsColor: .windowBackgroundColor)
+        }
     }
 }
 

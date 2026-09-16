@@ -4,7 +4,7 @@ import SwiftUI
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem!
-    private let popover = NSPopover()
+    private var panel: GlassPanelController<DetailView>!
     private let settings = AppSettings.shared
     private lazy var store = StatsStore(settings: settings)
     private let updater = Updater()
@@ -27,11 +27,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusItem.button?.action = #selector(statusItemClicked)
         statusItem.button?.sendAction(on: [.leftMouseUp, .rightMouseUp])
 
-        popover.behavior = .transient
-        popover.animates = true
-        popover.contentViewController = NSHostingController(
-            rootView: DetailView(store: store, settings: settings, updater: updater,
-                                 appearance: appearance))
+        panel = GlassPanelController(content: DetailView(
+            store: store, settings: settings, updater: updater, appearance: appearance))
 
         store.objectWillChange
             .receive(on: RunLoop.main)
@@ -50,6 +47,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         store.refresh()
         scheduleUpdateChecks()
+
+        if let path = ProcessInfo.processInfo.environment["RTKMETER_CAPTURE"] {
+            // Diagnostics: open the real popover and photograph that window, so
+            // the composited result can be reviewed instead of guessed at.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
+                self?.capturePopover(to: path)
+            }
+        }
 
         NSWorkspace.shared.notificationCenter.addObserver(
             self, selector: #selector(refreshNow),
@@ -107,6 +112,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             """
     }
 
+    /// Diagnostics: opens the real panel and photographs that window only.
+    /// Never a screen region — a region capture would include whatever else is
+    /// on screen, which is not ours to record.
+    private func capturePopover(to path: String) {
+        togglePopover()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
+            let capture = Process()
+            capture.executableURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
+            capture.arguments = ["-x", "-o", "-l\(self.panel.windowNumber)", path]
+            try? capture.run()
+            capture.waitUntilExit()
+            FileHandle.standardError.write(Data("capture: wrote \(path)\n".utf8))
+            exit(capture.terminationStatus)
+        }
+    }
+
     // MARK: Interaction
 
     @objc private func statusItemClicked() {
@@ -119,15 +140,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func togglePopover() {
         guard let button = statusItem.button else { return }
-        if popover.isShown {
-            popover.performClose(nil)
+        if panel.isVisible {
+            panel.close()
         } else {
             store.refresh()
             appearance.refreshFromSystem()
-            popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
-            // Without this the popover opens behind the frontmost app and loses key focus.
-            popover.contentViewController?.view.window?.makeKey()
-            NSApp.activate(ignoringOtherApps: true)
+            panel.show(from: button)
         }
     }
 
