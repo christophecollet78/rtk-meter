@@ -6,6 +6,9 @@ final class StatsStore: ObservableObject {
     @Published private(set) var error: RTKError?
     @Published private(set) var lastUpdate: Date?
     @Published private(set) var isLoading = false
+    /// Set only once a fetch has been running long enough to be worth showing,
+    /// so a fast refresh does not blink a spinner on every popover open.
+    @Published private(set) var showsProgress = false
 
     let settings: AppSettings
     private let queue = DispatchQueue(label: "rtkmeter.fetch", qos: .utility)
@@ -20,9 +23,16 @@ final class StatsStore: ObservableObject {
         self.lastUpdate = Date()
     }
 
+    /// How long a fetch must run before the spinner appears.
+    private let progressDelay: TimeInterval = 0.3
+
     func refresh() {
         guard !isLoading else { return }
         isLoading = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + progressDelay) { [weak self] in
+            guard let self, self.isLoading else { return }
+            self.showsProgress = true
+        }
         let override = settings.rtkPath
         let scope = settings.projectScope
         queue.async { [weak self] in
@@ -30,6 +40,7 @@ final class StatsStore: ObservableObject {
             DispatchQueue.main.async {
                 guard let self else { return }
                 self.isLoading = false
+                self.showsProgress = false
                 switch result {
                 case .success(let s):
                     self.stats = s
@@ -88,11 +99,16 @@ struct DetailView: View {
             Text("RTK Efficiency").font(.system(size: 13, weight: .semibold))
             Spacer()
             Button(action: store.refresh) {
-                Image(systemName: "arrow.clockwise")
-                    .rotationEffect(.degrees(store.isLoading ? 360 : 0))
-                    .animation(store.isLoading
-                        ? .linear(duration: 0.8).repeatForever(autoreverses: false)
-                        : .default, value: store.isLoading)
+                // A plain swap rather than a rotationEffect: toggling between 0 and
+                // 360 degrees made the icon unwind backwards when loading ended.
+                ZStack {
+                    if store.showsProgress {
+                        ProgressView().controlSize(.small)
+                    } else {
+                        Image(systemName: "arrow.clockwise")
+                    }
+                }
+                .frame(width: 16, height: 16)
             }
             .buttonStyle(.borderless)
             .help("Refresh now")
