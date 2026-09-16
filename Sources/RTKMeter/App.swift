@@ -29,6 +29,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         panel = GlassPanelController(content: DetailView(
             store: store, settings: settings, updater: updater, appearance: appearance))
+        panel.onClose = { [weak self] in self?.appearance.stopLiveUpdates() }
 
         store.objectWillChange
             .receive(on: RunLoop.main)
@@ -145,6 +146,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         } else {
             store.refresh()
             appearance.refreshFromSystem()
+            appearance.startLiveUpdates()
             panel.show(from: button)
         }
     }

@@ -78,13 +78,26 @@ final class AppearanceMonitor: ObservableObject {
             name: NSWorkspace.accessibilityDisplayOptionsDidChangeNotification,
             object: nil)
 
-        if Self.isDiagnostic {
-            let timer = Timer(timeInterval: 2, repeats: true) { [weak self] _ in
-                self?.refreshFromSystem()
-            }
-            RunLoop.main.add(timer, forMode: .common)
-            pollTimer = timer
+        if Self.isDiagnostic { startLiveUpdates() }
+    }
+
+    /// There is no notification for the Appearance slider, so while the panel is
+    /// on screen the value is polled: moving the slider then changes the panel
+    /// under the cursor instead of only on the next open.
+    func startLiveUpdates() {
+        guard pollTimer == nil else { return }
+        let timer = Timer(timeInterval: 1, repeats: true) { [weak self] _ in
+            self?.refreshFromSystem()
         }
+        timer.tolerance = 0.3
+        RunLoop.main.add(timer, forMode: .common)
+        pollTimer = timer
+    }
+
+    func stopLiveUpdates() {
+        guard !Self.isDiagnostic else { return }
+        pollTimer?.invalidate()
+        pollTimer = nil
     }
 
     @objc private func optionsChanged() {
@@ -145,7 +158,13 @@ struct PanelBackdrop: View {
         switch style {
         case .glass(let tint):
             if #available(macOS 26.0, *) {
-                Color.clear.glassEffect(tint < 0.5 ? .clear : .regular, in: Rectangle())
+                ZStack {
+                    Color.clear.glassEffect(tint < 0.5 ? .clear : .regular, in: Rectangle())
+                    // Clear glass alone barely differs from tinted at window
+                    // size, so the slider also drives an explicit fill: fully
+                    // see-through at 0, nearly solid at 1.
+                    Color(nsColor: .windowBackgroundColor).opacity(0.75 * tint)
+                }
             } else {
                 VisualEffectBackground(material: .popover, blending: .behindWindow)
             }
