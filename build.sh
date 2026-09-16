@@ -9,6 +9,12 @@ APP_NAME="${APP_NAME:-RTK Meter}"
 BUNDLE_ID="${BUNDLE_ID:-local.rtkmeter}"
 VERSION="${VERSION:-1.0}"
 
+if ! command -v swift >/dev/null 2>&1; then
+  echo "error: swift not found. Install the Xcode Command Line Tools:" >&2
+  echo "  xcode-select --install" >&2
+  exit 1
+fi
+
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 BUILD="$ROOT/build"
 APP="$BUILD/$APP_NAME.app"
