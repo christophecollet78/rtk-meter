@@ -17,16 +17,11 @@ final class GlassPanelController<Content: View> {
     /// Called when the panel closes itself, so the owner can update state.
     var onClose: (() -> Void)?
 
-    init(content: Content, cornerRadius: CGFloat = 16) {
-        let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-        // The content paints its own background: it knows the appearance settings,
-        // and the window must stay transparent for a material to reach the desktop.
-        let root = AnyView(
-            content
-                .clipShape(shape)
-                .overlay { shape.strokeBorder(.separator.opacity(0.6), lineWidth: 1) }
-        )
-        hosting = NSHostingView(rootView: root)
+    init(content: Content) {
+        // The content paints and shapes its own background: it knows the
+        // appearance settings, the window stays transparent so the material
+        // reaches the desktop, and no border of ours covers the glass edge.
+        hosting = NSHostingView(rootView: AnyView(content))
 
         panel = NSPanel(contentRect: NSRect(x: 0, y: 0, width: 340, height: 400),
                         styleMask: [.borderless, .nonactivatingPanel],

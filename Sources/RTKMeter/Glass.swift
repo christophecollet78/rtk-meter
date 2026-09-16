@@ -141,6 +141,18 @@ enum PanelStyle: Equatable {
     /// Opaque fills, for Reduce Transparency.
     case solid
 
+    /// Below this point the sections stop being glass of their own: stacking
+    /// glass on glass muddies both, and the system look is one clean sheet with
+    /// the content sitting directly on it.
+    var usesSectionPanels: Bool {
+        if case .glass(let tint) = self { return tint >= 0.35 }
+        return true
+    }
+
+    /// The window's corner radius, so the glass is shaped rather than clipped
+    /// after the fact — the edge highlight follows the shape.
+    static let cornerRadius: CGFloat = 16
+
     static func resolve(monitor: AppearanceMonitor, enabled: Bool) -> PanelStyle {
         guard enabled, !monitor.reduceTransparency else { return .solid }
         if #available(macOS 26.0, *) { return .glass(tint: monitor.glassTint) }
@@ -158,12 +170,18 @@ struct PanelBackdrop: View {
         switch style {
         case .glass(let tint):
             if #available(macOS 26.0, *) {
+                let shape = RoundedRectangle(cornerRadius: PanelStyle.cornerRadius,
+                                             style: .continuous)
                 ZStack {
-                    Color.clear.glassEffect(tint < 0.5 ? .clear : .regular, in: Rectangle())
-                    // Clear glass alone barely differs from tinted at window
-                    // size, so the slider also drives an explicit fill: fully
-                    // see-through at 0, nearly solid at 1.
-                    Color(nsColor: .windowBackgroundColor).opacity(0.75 * tint)
+                    // Nothing is painted over the glass at the low end: a fill,
+                    // even a faint one, is what makes it read as frosted plastic
+                    // instead of the system's glass.
+                    Color.clear.glassEffect(tint < 0.5 ? .clear : .regular, in: shape)
+                    if tint > 0 {
+                        Color(nsColor: .windowBackgroundColor)
+                            .opacity(0.75 * tint)
+                            .clipShape(shape)
+                    }
                 }
             } else {
                 VisualEffectBackground(material: .popover, blending: .behindWindow)

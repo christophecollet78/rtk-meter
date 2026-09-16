@@ -77,6 +77,7 @@ struct DetailView: View {
         }
         .frame(width: 340)
         .background { PanelBackdrop(style: panelStyle) }
+        .clipShape(RoundedRectangle(cornerRadius: PanelStyle.cornerRadius, style: .continuous))
     }
 
     @ViewBuilder
@@ -100,11 +101,20 @@ struct DetailView: View {
         }
     }
 
+    @ViewBuilder
     private func panel<Content: View>(@ViewBuilder content: () -> Content) -> some View {
-        content()
-            .padding(12)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .panelBackground(panelStyle, bordered: appearance.increaseContrast)
+        if panelStyle.usesSectionPanels {
+            content()
+                .padding(12)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .panelBackground(panelStyle, bordered: appearance.increaseContrast)
+        } else {
+            // One sheet of glass: the sections are spaced, not boxed.
+            content()
+                .padding(.horizontal, 4)
+                .padding(.vertical, 6)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
     }
 
     // MARK: Header
