@@ -1,5 +1,7 @@
 import Foundation
 import Combine
+import ServiceManagement
+import AppKit
 
 /// User-visible preferences, persisted in the standard defaults domain.
 /// Every key is also settable from the command line, which keeps the app
@@ -32,6 +34,26 @@ final class AppSettings: ObservableObject {
         didSet { defaults.set(showPercentage, forKey: Key.showPercentage) }
     }
 
+    /// Mirrors the login-item registration, so the popover can bind straight to it.
+    @Published var launchAtLogin: Bool {
+        didSet {
+            guard !isApplyingLoginItem else { return }
+            do {
+                if launchAtLogin { try SMAppService.mainApp.register() }
+                else { try SMAppService.mainApp.unregister() }
+            } catch {
+                NSSound.beep()
+            }
+            // Re-read rather than trust the request: the user can revoke the login
+            // item from System Settings behind our back.
+            isApplyingLoginItem = true
+            launchAtLogin = SMAppService.mainApp.status == .enabled
+            isApplyingLoginItem = false
+        }
+    }
+
+    private var isApplyingLoginItem = false
+
     /// Restrict stats to one directory (`rtk gain --project` run from there).
     /// Empty means global stats.
     @Published var projectScope: String {
@@ -50,6 +72,7 @@ final class AppSettings: ObservableObject {
         rtkPath = defaults.string(forKey: Key.rtkPath) ?? ""
         showPercentage = defaults.bool(forKey: Key.showPercentage)
         projectScope = defaults.string(forKey: Key.projectScope) ?? ""
+        launchAtLogin = SMAppService.mainApp.status == .enabled
     }
 
     var scopeLabel: String {

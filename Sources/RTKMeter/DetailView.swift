@@ -1,5 +1,4 @@
 import SwiftUI
-import ServiceManagement
 
 /// Fetches stats off the main thread and publishes them to the popover and status item.
 final class StatsStore: ObservableObject {
@@ -49,7 +48,6 @@ final class StatsStore: ObservableObject {
 struct DetailView: View {
     @ObservedObject var store: StatsStore
     @ObservedObject var settings: AppSettings
-    @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -113,15 +111,7 @@ struct DetailView: View {
                 }
             }
             Toggle("Show percentage in menu bar", isOn: $settings.showPercentage)
-            Toggle("Launch at login", isOn: Binding(
-                get: { launchAtLogin },
-                set: { enabled in
-                    do {
-                        if enabled { try SMAppService.mainApp.register() }
-                        else { try SMAppService.mainApp.unregister() }
-                    } catch { NSSound.beep() }
-                    launchAtLogin = SMAppService.mainApp.status == .enabled
-                }))
+            Toggle("Launch at login", isOn: $settings.launchAtLogin)
             Divider()
             Button("Scope: \(settings.scopeLabel)…") { chooseScope() }
             if !settings.projectScope.isEmpty {
