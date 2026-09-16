@@ -1,10 +1,10 @@
 # RTK Meter
 
 A macOS menu bar app for [rtk](https://github.com/rtk-ai/rtk) (Rust Token Killer): it shows your
-token-savings efficiency in the status bar and the full breakdown in a click-through popover.
+token-savings efficiency in the status bar and the full breakdown in a panel you click open.
 Refreshes every 60 seconds.
 
-<img src="docs/popover.png" width="340" alt="RTK Meter popover showing efficiency, daily savings and top commands">
+<img src="docs/popover.png" width="340" alt="RTK Meter panel showing efficiency, daily savings and top commands">
 
 ## Requirements
 
@@ -63,14 +63,21 @@ settings (`NSGlassTintAmount`) picks clear glass below its midpoint and tinted g
 above, and the fill under each panel follows the whole range, so the slider changes
 the panels rather than only their edges. Reduce Transparency replaces every panel
 with an opaque fill, and Increase Contrast adds a border. The slider is re-read
-through CFPreferences each time the popover opens, since `UserDefaults` caches other
-domains for the life of a process and a long-running agent would otherwise never see
-it move; the accessibility settings arrive as notifications and apply immediately.
+through CFPreferences while the panel is on screen — once a second, since the system
+sends no notification for it, and because `UserDefaults` caches other domains for the
+life of a process. Moving the slider therefore changes the panel under the cursor.
+The accessibility settings arrive as notifications and apply immediately.
+
+Towards the clear end the sections stop being panels of their own: glass over glass
+reads as frosted plastic rather than one sheet, which is how the system uses it. The
+report lives in a borderless `NSPanel` rather than an `NSPopover` for the same reason
+— a popover draws opaque chrome of its own, leaving the material nothing to sample
+and the system settings nothing to act on.
 
 "Translucent panels" in the gear menu opts out on its own, and is disabled while
 Reduce Transparency is on, since that already decides the question.
 
-<img src="docs/liquid-glass.png" width="340" alt="The popover's glass panels over a colour gradient">
+<img src="docs/liquid-glass.png" width="340" alt="The panel's glass over a colour gradient">
 
 The gradient above is the preview harness, not the app: glass only exists once the
 window server composites it, so a design review needs a real window.
@@ -84,11 +91,22 @@ PREVIEW_ONSCREEN=1 "build/RTK Meter.app/Contents/MacOS/RTKMeter" --render-previe
 `PREVIEW_GLASS_TINT=0.0` … `1.0` overrides the slider for that render, so both ends
 can be reviewed without touching a system setting.
 
+Two more diagnostics, both opt-in:
+
+```bash
+"build/RTK Meter.app/Contents/MacOS/RTKMeter" --print-appearance   # what the app reads
+RTKMETER_DIAGNOSTICS=1 "build/RTK Meter.app/Contents/MacOS/RTKMeter"  # log every change
+RTKMETER_CAPTURE=panel.png "build/RTK Meter.app/Contents/MacOS/RTKMeter"  # photograph the panel
+```
+
+`RTKMETER_CAPTURE` photographs the panel's own window and never a screen region: a
+region shot would record whatever else happens to be on screen.
+
 ## Updates
 
 The app asks GitHub for the latest release five seconds after launch and every six
 hours after that. When a newer version exists, a banner appears at the top of the
-popover; installed from the tap, its button runs `brew upgrade` and then offers to
+panel; installed from the tap, its button runs `brew upgrade` and then offers to
 relaunch. Installed any other way, it links to the release instead. "Check for
 Updates" in the gear menu asks immediately.
 
@@ -99,7 +117,7 @@ than claiming to be outdated.
 
 ## Settings
 
-The gear menu in the popover covers refresh interval, menu bar percentage, launch at
+The gear menu covers refresh interval, menu bar percentage, launch at
 login, an explicit `rtk` path, and a project scope (statistics for one directory, via
 `rtk gain --project`). Everything is stored in the standard defaults domain, so it can
 also be scripted:
@@ -133,9 +151,10 @@ if that layout changes, the section is omitted rather than showing wrong numbers
 | `Sources/RTKMeter/Settings.swift` | Preferences, backed by `UserDefaults` |
 | `Sources/RTKMeter/Updater.swift` | Release check, `brew upgrade`, relaunch |
 | `Sources/RTKMeter/Glass.swift` | Panel materials and the accessibility settings |
-| `Sources/RTKMeter/DetailView.swift` | SwiftUI popover |
-| `Sources/RTKMeter/App.swift` | Status item, timer, popover hosting |
-| `Sources/RTKMeter/PreviewRenderer.swift` | Offscreen PNG render of the popover |
+| `Sources/RTKMeter/DetailView.swift` | The SwiftUI report |
+| `Sources/RTKMeter/App.swift` | Status item, timers, panel hosting |
+| `Sources/RTKMeter/GlassPanel.swift` | The borderless panel and its dismissal |
+| `Sources/RTKMeter/PreviewRenderer.swift` | Offscreen PNG render of the report |
 | `Sources/RTKMeter/main.swift` | Entry point |
 
 The binary doubles as its own screenshot tool, which is how CI checks the UI without a
