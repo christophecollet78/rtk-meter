@@ -53,6 +53,26 @@ Override the bundle metadata if you are packaging your own variant:
 APP_NAME="Token Meter" BUNDLE_ID="com.example.tokenmeter" VERSION=1.1 ./build.sh
 ```
 
+## Appearance
+
+The report is drawn as translucent panels: Liquid Glass on macOS 26 and later, an
+`NSVisualEffectView` material before that. The system settings win over both —
+Reduce Transparency switches every panel to an opaque fill, and Increase Contrast
+adds a border — and the app follows changes live, without a restart. "Translucent
+panels" in the gear menu opts out on its own, and is disabled while Reduce
+Transparency is on, since that already decides the question.
+
+<img src="docs/liquid-glass.png" width="340" alt="The popover's glass panels over a colour gradient">
+
+The gradient above is the preview harness, not the app: glass only exists once the
+window server composites it, so a design review needs a real window.
+`PREVIEW_ONSCREEN=1` puts the view in one over a gradient and screenshots that
+window alone:
+
+```bash
+PREVIEW_ONSCREEN=1 "build/RTK Meter.app/Contents/MacOS/RTKMeter" --render-preview glass.png
+```
+
 ## Updates
 
 The app asks GitHub for the latest release five seconds after launch and every six
@@ -78,6 +98,7 @@ defaults write local.rtkmeter refreshInterval -float 300
 defaults write local.rtkmeter rtkPath /custom/bin/rtk
 defaults write local.rtkmeter projectScope ~/code/my-project
 defaults write local.rtkmeter showPercentage -bool false
+defaults write local.rtkmeter useGlass -bool false
 ```
 
 ## What it shows
@@ -100,6 +121,7 @@ if that layout changes, the section is omitted rather than showing wrong numbers
 | `Sources/RTKMeter/RTK.swift` | Locates and runs `rtk`, parses its output |
 | `Sources/RTKMeter/Settings.swift` | Preferences, backed by `UserDefaults` |
 | `Sources/RTKMeter/Updater.swift` | Release check, `brew upgrade`, relaunch |
+| `Sources/RTKMeter/Glass.swift` | Panel materials and the accessibility settings |
 | `Sources/RTKMeter/DetailView.swift` | SwiftUI popover |
 | `Sources/RTKMeter/App.swift` | Status item, timer, popover hosting |
 | `Sources/RTKMeter/PreviewRenderer.swift` | Offscreen PNG render of the popover |

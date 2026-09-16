@@ -60,6 +60,11 @@ struct DetailView: View {
     @ObservedObject var store: StatsStore
     @ObservedObject var settings: AppSettings
     @ObservedObject var updater: Updater
+    @ObservedObject var appearance: AppearanceMonitor
+
+    private var panelStyle: PanelStyle {
+        PanelStyle.resolve(monitor: appearance, enabled: settings.useGlass)
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -78,19 +83,27 @@ struct DetailView: View {
         if let stats = store.stats {
             // No ScrollView: every section has a bounded height, so the popover
             // shows the whole report at once and sizes itself to fit.
-            VStack(alignment: .leading, spacing: 18) {
-                gauge(stats.summary)
-                statGrid(stats.summary)
-                if !stats.daily.isEmpty { dailyChart(stats.daily) }
-                if !stats.top.isEmpty { topCommands(stats.top) }
+            VStack(alignment: .leading, spacing: 10) {
+                panel { gauge(stats.summary) }
+                panel { statGrid(stats.summary) }
+                if !stats.daily.isEmpty { panel { dailyChart(stats.daily) } }
+                if !stats.top.isEmpty { panel { topCommands(stats.top) } }
             }
-            .padding(16)
+            .padding(12)
+            .panelGroup(panelStyle, spacing: 10)
         } else if let error = store.error {
             errorBlock(error)
         } else {
             ProgressView().controlSize(.small)
                 .frame(maxWidth: .infinity).padding(40)
         }
+    }
+
+    private func panel<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+        content()
+            .padding(12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .panelBackground(panelStyle, bordered: appearance.increaseContrast)
     }
 
     // MARK: Header
@@ -128,6 +141,8 @@ struct DetailView: View {
                 }
             }
             Toggle("Show percentage in menu bar", isOn: $settings.showPercentage)
+            Toggle("Translucent panels", isOn: $settings.useGlass)
+                .disabled(appearance.reduceTransparency)
             Toggle("Launch at login", isOn: $settings.launchAtLogin)
             Divider()
             Button("Scope: \(settings.scopeLabel)…") { chooseScope() }
@@ -248,7 +263,13 @@ struct DetailView: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
-        .background(Color.accentColor.opacity(0.08))
+        .background {
+            if case .solid = panelStyle {
+                Color(nsColor: .controlBackgroundColor)
+            } else {
+                Color.accentColor.opacity(0.10)
+            }
+        }
         .overlay(alignment: .bottom) { Divider() }
     }
 

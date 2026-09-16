@@ -8,6 +8,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let settings = AppSettings.shared
     private lazy var store = StatsStore(settings: settings)
     private let updater = Updater()
+    private let appearance = AppearanceMonitor()
     private var timer: Timer?
     private var updateTimer: Timer?
     private var subscriptions = Set<AnyCancellable>()
@@ -29,7 +30,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         popover.behavior = .transient
         popover.animates = true
         popover.contentViewController = NSHostingController(
-            rootView: DetailView(store: store, settings: settings, updater: updater))
+            rootView: DetailView(store: store, settings: settings, updater: updater,
+                                 appearance: appearance))
 
         store.objectWillChange
             .receive(on: RunLoop.main)

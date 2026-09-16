@@ -16,6 +16,7 @@ final class AppSettings: ObservableObject {
         static let rtkPath = "rtkPath"
         static let showPercentage = "showPercentage"
         static let projectScope = "projectScope"
+        static let useGlass = "useGlass"
     }
 
     /// Offered in the popover; any other value set through `defaults` is honoured too.
@@ -32,6 +33,12 @@ final class AppSettings: ObservableObject {
 
     @Published var showPercentage: Bool {
         didSet { defaults.set(showPercentage, forKey: Key.showPercentage) }
+    }
+
+    /// Translucent panels. The system's Reduce Transparency setting overrides
+    /// this when it is on; turning this off opts out even when it is not.
+    @Published var useGlass: Bool {
+        didSet { defaults.set(useGlass, forKey: Key.useGlass) }
     }
 
     /// Mirrors the login-item registration, so the popover can bind straight to it.
@@ -67,10 +74,12 @@ final class AppSettings: ObservableObject {
         defaults.register(defaults: [
             Key.refreshInterval: 60.0,
             Key.showPercentage: true,
+            Key.useGlass: true,
         ])
         refreshInterval = defaults.double(forKey: Key.refreshInterval)
         rtkPath = defaults.string(forKey: Key.rtkPath) ?? ""
         showPercentage = defaults.bool(forKey: Key.showPercentage)
+        useGlass = defaults.bool(forKey: Key.useGlass)
         projectScope = defaults.string(forKey: Key.projectScope) ?? ""
         launchAtLogin = SMAppService.mainApp.status == .enabled
     }

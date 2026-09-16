@@ -7,6 +7,10 @@ import SwiftUI
 ///     RTKMeter --render-preview out.png [rtk-gain-output.txt]
 ///
 /// Set PREVIEW_UPDATE=1.2.0 to draw the update banner as well.
+///
+/// Materials and Liquid Glass only exist on screen, so PREVIEW_ONSCREEN=1 puts
+/// the view in a real window over the desktop and screenshots that region
+/// instead of drawing into an offscreen bitmap.
 enum PreviewRenderer {
     static func outputPath(from arguments: [String]) -> (png: String, fixture: String?)? {
         guard let flag = arguments.firstIndex(of: "--render-preview"),
@@ -26,8 +30,14 @@ enum PreviewRenderer {
             updater.setPreviewUpdate(version: version)
         }
 
-        let view = NSHostingView(rootView: DetailView(
-            store: store, settings: store.settings, updater: updater))
+        let detail = DetailView(store: store, settings: store.settings, updater: updater,
+                                appearance: AppearanceMonitor())
+
+        if ProcessInfo.processInfo.environment["PREVIEW_ONSCREEN"] == "1" {
+            return renderOnScreen(detail: detail, to: path)
+        }
+
+        let view = NSHostingView(rootView: detail)
         view.frame = NSRect(x: 0, y: 0, width: 340, height: view.fittingSize.height)
         view.layoutSubtreeIfNeeded()
 
@@ -41,6 +51,50 @@ enum PreviewRenderer {
             return 1
         }
         print("rendered \(Int(view.bounds.width))x\(Int(view.bounds.height)) -> \(path)")
+        return 0
+    }
+
+    /// Materials and Liquid Glass are composited by the window server, so they
+    /// are invisible to an offscreen bitmap. This shows the view in a real
+    /// window over a gradient — something for the glass to refract — and
+    /// screenshots that window alone, never the surrounding screen.
+    private static func renderOnScreen(detail: DetailView, to path: String) -> Int32 {
+        let backdrop = LinearGradient(
+            colors: [.orange, .purple, .blue, .teal],
+            startPoint: .topLeading, endPoint: .bottomTrailing)
+
+        let sized = NSHostingView(rootView: detail)
+        let height = sized.fittingSize.height
+        let root = NSHostingView(rootView: ZStack { backdrop; detail }
+            .frame(width: 340, height: height))
+        root.frame = NSRect(x: 0, y: 0, width: 340, height: height)
+        root.layoutSubtreeIfNeeded()
+
+        let window = NSWindow(contentRect: root.frame, styleMask: [.borderless],
+                              backing: .buffered, defer: false)
+        window.isOpaque = false
+        window.backgroundColor = .clear
+        window.hasShadow = false
+        window.level = .floating
+        window.contentView = root
+        window.center()
+        window.orderFrontRegardless()
+
+        RunLoop.main.run(until: Date().addingTimeInterval(1.0))
+
+        let capture = Process()
+        capture.executableURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
+        // -l captures this window only, so nothing else on screen is recorded.
+        capture.arguments = ["-x", "-o", "-l\(window.windowNumber)", path]
+        do { try capture.run() } catch { return 1 }
+        capture.waitUntilExit()
+        window.orderOut(nil)
+
+        guard capture.terminationStatus == 0 else {
+            FileHandle.standardError.write(Data("preview: screencapture failed\n".utf8))
+            return 1
+        }
+        print("captured window 340x\(Int(height)) -> \(path)")
         return 0
     }
 
