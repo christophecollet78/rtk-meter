@@ -12,7 +12,24 @@ Refreshes every 60 seconds.
 - Xcode Command Line Tools (`xcode-select --install`) — build only
 - `rtk` installed and on the PATH
 
-## Build & install
+## Install
+
+```bash
+brew install christophecollet78/tap/rtk-meter
+rtk-meter
+```
+
+That pours the prebuilt universal bundle — no Swift toolchain, no Apple Developer
+account, and nothing for Gatekeeper to complain about, since Homebrew does not
+quarantine formula downloads.
+
+To put it in Launchpad as well:
+
+```bash
+ln -sfn "$(brew --prefix rtk-meter)/RTK Meter.app" ~/Applications/"RTK Meter.app"
+```
+
+## Build from source
 
 ```bash
 git clone https://github.com/christophecollet78/rtk-meter.git
@@ -22,10 +39,13 @@ cp -R "build/RTK Meter.app" ~/Applications/
 open ~/Applications/"RTK Meter.app"
 ```
 
-`build.sh` runs `swift build` and wraps the result into a universal (arm64 + x86_64),
-ad-hoc signed bundle in `build/`. An app you build yourself is not quarantined, so
-Gatekeeper stays out of the way. A bundle you *download* is: distributing binaries to
-other people needs a Developer ID signature and notarisation.
+Needs the Xcode Command Line Tools (`xcode-select --install`); a full Xcode install is
+not required. `build.sh` runs `swift build` and wraps the result into a universal
+(arm64 + x86_64), ad-hoc signed bundle in `build/`. `brew install --HEAD` does the same
+from the latest commit.
+
+Pushing a `v*` tag builds this bundle in CI and publishes it as a release asset, which
+is what the Homebrew formula installs.
 
 Override the bundle metadata if you are packaging your own variant:
 
