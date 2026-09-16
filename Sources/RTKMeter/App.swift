@@ -123,6 +123,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             popover.performClose(nil)
         } else {
             store.refresh()
+            appearance.refreshFromSystem()
             popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
             // Without this the popover opens behind the frontmost app and loses key focus.
             popover.contentViewController?.view.window?.makeKey()

@@ -56,11 +56,19 @@ APP_NAME="Token Meter" BUNDLE_ID="com.example.tokenmeter" VERSION=1.1 ./build.sh
 ## Appearance
 
 The report is drawn as translucent panels: Liquid Glass on macOS 26 and later, an
-`NSVisualEffectView` material before that. The system settings win over both —
-Reduce Transparency switches every panel to an opaque fill, and Increase Contrast
-adds a border — and the app follows changes live, without a restart. "Translucent
-panels" in the gear menu opts out on its own, and is disabled while Reduce
-Transparency is on, since that already decides the question.
+`NSVisualEffectView` material before that.
+
+The system decides how translucent they are. The Liquid Glass slider in Appearance
+settings (`NSGlassTintAmount`) picks clear glass below its midpoint and tinted glass
+above, and the fill under each panel follows the whole range, so the slider changes
+the panels rather than only their edges. Reduce Transparency replaces every panel
+with an opaque fill, and Increase Contrast adds a border. The slider is re-read
+through CFPreferences each time the popover opens, since `UserDefaults` caches other
+domains for the life of a process and a long-running agent would otherwise never see
+it move; the accessibility settings arrive as notifications and apply immediately.
+
+"Translucent panels" in the gear menu opts out on its own, and is disabled while
+Reduce Transparency is on, since that already decides the question.
 
 <img src="docs/liquid-glass.png" width="340" alt="The popover's glass panels over a colour gradient">
 
@@ -72,6 +80,9 @@ window alone:
 ```bash
 PREVIEW_ONSCREEN=1 "build/RTK Meter.app/Contents/MacOS/RTKMeter" --render-preview glass.png
 ```
+
+`PREVIEW_GLASS_TINT=0.0` … `1.0` overrides the slider for that render, so both ends
+can be reviewed without touching a system setting.
 
 ## Updates
 
