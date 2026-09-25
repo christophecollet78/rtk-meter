@@ -332,7 +332,9 @@ struct DetailView: View {
     }
 
     private func dailyChart(_ daily: [GainDay]) -> some View {
-        let days = Array(daily.suffix(14))
+        // A week fits the panel's width with room for readable date labels; two
+        // weeks did not, and the overflow shifted the whole panel sideways.
+        let days = Array(daily.suffix(7))
         let peak = max(days.map(\.savingsPct).max() ?? 1, 1)
         return VStack(alignment: .leading, spacing: 8) {
             sectionTitle("Daily savings", trailing: "last \(days.count)d · peak \(Fmt.pct(peak))")
@@ -347,8 +349,11 @@ struct DetailView: View {
                             .frame(height: max(3, 54 * day.savingsPct / peak))
                         Text(day.shortLabel)
                             .font(.system(size: 8)).foregroundStyle(.secondary)
-                            .lineLimit(1).fixedSize()
+                            .lineLimit(1)
                     }
+                    // Equal columns: the chart's width is the panel's, never the
+                    // sum of whatever its labels would like.
+                    .frame(maxWidth: .infinity)
                     .help("\(day.date) — \(Fmt.pct(day.savingsPct)), "
                           + "\(Fmt.compact(day.savedTokens)) saved, \(day.commands) cmds")
                 }

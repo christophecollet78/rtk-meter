@@ -133,7 +133,7 @@ defaults write local.rtkmeter useGlass -bool false
 ## What it shows
 
 - **Status bar** — gauge symbol plus the average savings percentage
-- **Popover** (left-click) — totals, a daily savings chart for the last 14 days,
+- **Panel** (left-click) — totals, a daily savings chart for the last 7 days,
   and the top commands ranked by tokens saved
 - **Context menu** (right-click) — Refresh / Quit
 - **Launch at login** — registers the app through `SMAppService`
