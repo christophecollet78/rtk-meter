@@ -9,7 +9,7 @@ jobs:
   build:
     runs-on: macos-26
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Build app bundle
         run: ./build.sh
@@ -20,7 +20,7 @@ jobs:
           test -s popover.png
 
       - name: Upload preview
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: popover-preview
           path: popover.png
