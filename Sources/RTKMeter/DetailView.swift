@@ -1,6 +1,7 @@
 import SwiftUI
 
 /// Fetches stats off the main thread and publishes them to the popover and status item.
+@MainActor
 final class StatsStore: ObservableObject {
     @Published private(set) var stats: Stats?
     @Published private(set) var error: RTKError?

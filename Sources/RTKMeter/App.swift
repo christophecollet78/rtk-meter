@@ -2,6 +2,7 @@ import AppKit
 import Combine
 import SwiftUI
 
+@MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem!
     private var panel: GlassPanelController<DetailView>!
@@ -67,7 +68,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func scheduleTimer(every interval: TimeInterval) {
         timer?.invalidate()
         let t = Timer(timeInterval: max(interval, 5), repeats: true) { [weak self] _ in
-            self?.store.refresh()
+            // Scheduled on the main run loop, so this always fires on the main thread.
+            MainActor.assumeIsolated { self?.store.refresh() }
         }
         // Let macOS coalesce this with other timers; the exact second does not matter.
         t.tolerance = max(interval * 0.1, 2)
@@ -85,7 +87,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self?.updater.check()
         }
         let t = Timer(timeInterval: 6 * 3600, repeats: true) { [weak self] _ in
-            self?.updater.check()
+            MainActor.assumeIsolated { self?.updater.check() }
         }
         t.tolerance = 600
         RunLoop.main.add(t, forMode: .common)

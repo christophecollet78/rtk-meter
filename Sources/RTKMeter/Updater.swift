@@ -42,6 +42,7 @@ struct ReleaseInfo: Equatable {
 ///
 /// The repository and formula are read from Info.plist, so a fork only has to
 /// pass `REPOSITORY` and `FORMULA` to build.sh.
+@MainActor
 final class Updater: ObservableObject {
     enum Phase: Equatable {
         case idle
@@ -107,7 +108,7 @@ final class Updater: ObservableObject {
         }.resume()
     }
 
-    static func parseRelease(_ data: Data) -> ReleaseInfo? {
+    nonisolated static func parseRelease(_ data: Data) -> ReleaseInfo? {
         struct Payload: Decodable {
             let tagName: String
             let htmlURL: String
@@ -134,8 +135,9 @@ final class Updater: ObservableObject {
         }
 
         phase = .upgrading
+        let formula = formula
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            let result = Self.run(brew, ["upgrade", "--formula", self?.formula ?? ""])
+            let result = Self.run(brew, ["upgrade", "--formula", formula])
             DispatchQueue.main.async {
                 guard let self else { return }
                 switch result {
@@ -188,11 +190,15 @@ final class Updater: ObservableObject {
         NSWorkspace.shared.open(url)
     }
 
+    private final class OutputBox: @unchecked Sendable {
+        var data = Data()
+    }
+
     private struct CommandFailure: Error {
         let message: String
     }
 
-    private static func run(_ path: String, _ args: [String]) -> Result<Void, CommandFailure> {
+    nonisolated private static func run(_ path: String, _ args: [String]) -> Result<Void, CommandFailure> {
         let proc = Process()
         proc.executableURL = URL(fileURLWithPath: path)
         proc.arguments = args
@@ -200,10 +206,11 @@ final class Updater: ObservableObject {
         proc.standardOutput = pipe
         proc.standardError = pipe
 
-        var output = Data()
+        // Written once by the drain queue, read only after `done` is signalled.
+        let output = OutputBox()
         let done = DispatchSemaphore(value: 0)
         DispatchQueue.global(qos: .utility).async {
-            output = pipe.fileHandleForReading.readDataToEndOfFile()
+            output.data = pipe.fileHandleForReading.readDataToEndOfFile()
             done.signal()
         }
         do { try proc.run() } catch { return .failure(CommandFailure(message: "could not run brew")) }
@@ -215,7 +222,7 @@ final class Updater: ObservableObject {
         }
         proc.waitUntilExit()
         guard proc.terminationStatus == 0 else {
-            let text = String(data: output, encoding: .utf8) ?? ""
+            let text = String(data: output.data, encoding: .utf8) ?? ""
             let lastLine = text.split(separator: "\n").last { !$0.isEmpty }
             return .failure(CommandFailure(
                 message: lastLine.map(String.init) ?? "brew upgrade failed"))

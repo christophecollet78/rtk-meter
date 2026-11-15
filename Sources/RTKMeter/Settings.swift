@@ -8,6 +8,7 @@ import AppKit
 /// scriptable and makes the defaults obvious to anyone reading `defaults read`:
 ///
 ///     defaults write local.rtkmeter rtkPath /custom/bin/rtk
+@MainActor
 final class AppSettings: ObservableObject {
     static let shared = AppSettings()
 

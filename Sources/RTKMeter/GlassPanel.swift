@@ -7,6 +7,7 @@ import SwiftUI
 /// nothing to refract and makes the system transparency settings irrelevant.
 /// Owning the window means the background really is a material, so the desktop
 /// shows through and the Appearance settings apply to it.
+@MainActor
 final class GlassPanelController<Content: View> {
     private let panel: NSPanel
     private let hosting: NSHostingView<AnyView>
@@ -89,7 +90,8 @@ final class GlassPanelController<Content: View> {
         resignObserver = NotificationCenter.default.addObserver(
             forName: NSWindow.didResignKeyNotification, object: panel, queue: .main
         ) { [weak self] _ in
-            self?.close()
+            // Delivered on the main queue, as requested above.
+            MainActor.assumeIsolated { self?.close() }
         }
     }
 

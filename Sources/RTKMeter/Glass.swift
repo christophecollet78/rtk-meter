@@ -3,6 +3,7 @@ import SwiftUI
 
 /// Tracks the accessibility display settings that decide whether the popover may
 /// use translucency, and republishes them when the user changes them.
+@MainActor
 final class AppearanceMonitor: ObservableObject {
     @Published private(set) var reduceTransparency: Bool
     @Published private(set) var increaseContrast: Bool
@@ -87,7 +88,8 @@ final class AppearanceMonitor: ObservableObject {
     func startLiveUpdates() {
         guard pollTimer == nil else { return }
         let timer = Timer(timeInterval: 1, repeats: true) { [weak self] _ in
-            self?.refreshFromSystem()
+            // Scheduled on the main run loop, so this always fires on the main thread.
+            MainActor.assumeIsolated { self?.refreshFromSystem() }
         }
         timer.tolerance = 0.3
         RunLoop.main.add(timer, forMode: .common)
@@ -153,6 +155,7 @@ enum PanelStyle: Equatable {
     /// after the fact — the edge highlight follows the shape.
     static let cornerRadius: CGFloat = 16
 
+    @MainActor
     static func resolve(monitor: AppearanceMonitor, enabled: Bool) -> PanelStyle {
         guard enabled, !monitor.reduceTransparency else { return .solid }
         if #available(macOS 26.0, *) { return .glass(tint: monitor.glassTint) }

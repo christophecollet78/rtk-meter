@@ -11,6 +11,7 @@ import SwiftUI
 /// Materials and Liquid Glass only exist on screen, so PREVIEW_ONSCREEN=1 puts
 /// the view in a real window over the desktop and screenshots that region
 /// instead of drawing into an offscreen bitmap.
+@MainActor
 enum PreviewRenderer {
     static func outputPath(from arguments: [String]) -> (png: String, fixture: String?)? {
         guard let flag = arguments.firstIndex(of: "--render-preview"),

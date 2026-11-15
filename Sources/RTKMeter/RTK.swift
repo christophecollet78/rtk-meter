@@ -1,4 +1,5 @@
 import Foundation
+import os
 
 enum RTKError: Error, Equatable {
     case notFound
@@ -32,9 +33,10 @@ enum RTK {
     ]
 
     /// Seconds before a stuck `rtk` invocation is given up on and killed.
-    static var timeout: TimeInterval = 15
+    static let timeout: TimeInterval = 15
 
-    private static var discovered: String?
+    /// Cached discovery result. `fetch` runs off the main thread, so guard it.
+    private static let discovered = OSAllocatedUnfairLock<String?>(initialState: nil)
 
     /// - Parameter override: an explicit binary path from settings; empty means discover.
     static func resolveBinary(override: String = "") -> String? {
@@ -43,16 +45,16 @@ enum RTK {
         if !trimmed.isEmpty {
             return fm.isExecutableFile(atPath: trimmed) ? trimmed : nil
         }
-        if let discovered, fm.isExecutableFile(atPath: discovered) { return discovered }
+        if let cached = discovered.withLock({ $0 }), fm.isExecutableFile(atPath: cached) { return cached }
         for path in candidatePaths where fm.isExecutableFile(atPath: path) {
-            discovered = path
+            discovered.withLock { $0 = path }
             return path
         }
         let shell = ProcessInfo.processInfo.environment["SHELL"] ?? "/bin/zsh"
         if let out = run(shell, ["-lc", "command -v rtk"])?
             .trimmingCharacters(in: .whitespacesAndNewlines),
            !out.isEmpty, fm.isExecutableFile(atPath: out) {
-            discovered = out
+            discovered.withLock { $0 = out }
             return out
         }
         return nil
